@@ -65,6 +65,14 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
     )
     app.state.settings = settings
 
+    registry = ProviderRegistry.from_settings(settings)
+    app.state.registry = registry
+    app.state.service = LLMService(
+        registry=registry,
+        policy=RetryPolicy.from_settings(settings),
+        settings=settings,
+    )
+
     # Add middlewares (executed in reverse of addition order: RequestId -> Auth -> PayloadSize)
     app.add_middleware(PayloadSizeLimitMiddleware, max_bytes=settings.max_request_bytes)
     app.add_middleware(InboundAuthMiddleware, settings=settings)

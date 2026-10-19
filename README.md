@@ -11,13 +11,13 @@ A high-performance, standardized middleware service providing a single unified A
 - **Error Taxonomy**: Consistent HTTP status codes and structured error envelope for all client and upstream failures.
 - **Observability**: Structlog structured logging (JSON or console), automatic secret redaction, request correlation IDs (`X-Request-ID`), and Prometheus metrics (`/metrics`).
 - **Security**: Inbound bearer token authentication (`ULIL_API_KEYS`), payload size limiting, and sanitized error messages.
-- **Docker-ready**: Multi-stage, non-root Docker build and docker-compose configurations.
+- **Docker-ready**: Multi-stage, non-root Docker build.
 
 ## Quick Start
 
 ### 1. Install Dependencies
 ```bash
-pip install -e ".[dev]"
+pip install -e .
 ```
 
 ### 2. Configure Environment
@@ -37,8 +37,3 @@ uvicorn unified_llm.main:create_app --factory --host 0.0.0.0 --port 8000 --reloa
 - `GET /healthz` - Liveness health check
 - `GET /readyz` - Readiness probe (`?deep=true` for live upstream checks)
 - `GET /metrics` - Prometheus metrics
-
-## Running Tests
-```bash
-pytest
-```

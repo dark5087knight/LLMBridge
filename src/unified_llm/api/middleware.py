@@ -2,10 +2,10 @@
 
 import secrets
 import uuid
-from typing import Any, Callable
+from typing import Any
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 import structlog
 
 from unified_llm.config.settings import ServiceSettings
@@ -24,7 +24,7 @@ UNAUTHENTICATED_PATHS = {
 class RequestIdMiddleware(BaseHTTPMiddleware):
     """Assigns or propagates X-Request-ID and binds it to structlog contextvars."""
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         incoming_id = request.headers.get("X-Request-ID")
         req_id = incoming_id if incoming_id else f"req_{uuid.uuid4().hex[:16]}"
         request.state.request_id = req_id
@@ -45,7 +45,7 @@ class InboundAuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.settings = settings
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # If no API keys are configured, authentication is disabled
         if not self.settings.api_keys or request.url.path in UNAUTHENTICATED_PATHS:
             return await call_next(request)
@@ -105,7 +105,7 @@ class PayloadSizeLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.max_bytes = max_bytes
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         content_length = request.headers.get("content-length")
         req_id = getattr(request.state, "request_id", None)
 

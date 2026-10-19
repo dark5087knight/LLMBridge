@@ -49,6 +49,13 @@ def configure_logging(
         ],
     )
 
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
 

@@ -6,10 +6,10 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 WORKDIR /build
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-RUN pip install --prefix=/install --no-deps .
+RUN pip install --prefix=/install .
 
 FROM python:3.12-slim AS runtime
 

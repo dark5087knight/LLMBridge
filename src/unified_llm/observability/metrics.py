@@ -10,7 +10,7 @@ class MetricsRegistry:
     def __init__(self) -> None:
         self._lock = Lock()
         self._requests_total: dict[tuple[str, str, str], int] = defaultdict(int)
-        self._attempts_total: dict[tuple[str, str, str], int] = defaultdict(int)
+        self._attempts_total: dict[tuple[str, str], int] = defaultdict(int)
         self._errors_total: dict[tuple[str, str], int] = defaultdict(int)
         self._inflight: dict[str, int] = defaultdict(int)
         self._durations: dict[tuple[str, str], list[float]] = defaultdict(list)

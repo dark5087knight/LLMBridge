@@ -1,7 +1,10 @@
 """Redaction utilities to prevent credentials and secrets from leaking into logs or errors."""
 
+from collections.abc import Mapping
 import re
 from typing import Any
+import structlog
+from structlog.types import EventDict, WrappedLogger
 
 # Patterns matching standard provider API keys and authorization headers
 _SECRET_PATTERNS = [
@@ -33,17 +36,17 @@ def redact_text(text: str) -> str:
     return sanitized
 
 
-def redact_dict(data: dict[str, Any]) -> dict[str, Any]:
+def redact_dict(data: Mapping[str, Any]) -> dict[str, Any]:
     """Recursively redact dictionary keys and values."""
     redacted: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(key, str) and key.lower() in _SENSITIVE_KEYS:
             redacted[key] = "[REDACTED]"
-        elif isinstance(value, dict):
+        elif isinstance(value, Mapping):
             redacted[key] = redact_dict(value)
         elif isinstance(value, list):
             redacted[key] = [
-                redact_dict(item) if isinstance(item, dict)
+                redact_dict(item) if isinstance(item, Mapping)
                 else (redact_text(item) if isinstance(item, str) else item)
                 for item in value
             ]
@@ -54,6 +57,10 @@ def redact_dict(data: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
-def redaction_processor(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def redaction_processor(
+    logger: WrappedLogger,
+    method_name: str,
+    event_dict: EventDict,
+) -> EventDict:
     """Structlog processor that redacts secrets from event dictionary."""
     return redact_dict(event_dict)
