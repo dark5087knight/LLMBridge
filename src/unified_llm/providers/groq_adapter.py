@@ -13,7 +13,6 @@ from unified_llm.core.errors import (
     BadProviderResponse,
     ContentRejected,
     ContextLengthExceeded,
-    InvalidRequest,
     ModelNotFound,
     ProviderAuthError,
     ProviderConnectionError,
@@ -133,7 +132,7 @@ class GroqAdapter(ProviderAdapter):
                 return ContextLengthExceeded("Prompt exceeds model context length.", provider=self.name, provider_status=400)
             if any(k in msg for k in ("content filter", "safety policy", "policy violation")):
                 return ContentRejected("Prompt rejected by Groq content filter.", provider=self.name, provider_status=400)
-            return InvalidRequest("Bad request sent to Groq.", provider=self.name, provider_status=400)
+            return BadProviderResponse("Bad request sent to Groq.", provider=self.name, provider_status=400, retryable=False)
 
         if isinstance(exc, groq.APITimeoutError) or isinstance(exc, httpx.TimeoutException):
             return ProviderTimeout("Groq request timed out.", provider=self.name, provider_status=504)

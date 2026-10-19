@@ -12,7 +12,6 @@ from unified_llm.core.errors import (
     BadProviderResponse,
     ContentRejected,
     ContextLengthExceeded,
-    InvalidRequest,
     ModelNotFound,
     ProviderAuthError,
     ProviderConnectionError,
@@ -258,7 +257,7 @@ class GeminiAdapter(ProviderAdapter):
                 return ContextLengthExceeded("Prompt exceeds Gemini context length.", provider=self.name, provider_status=400)
             if any(k in msg for k in ("safety", "blocked", "policy")):
                 return ContentRejected("Prompt rejected by Gemini safety policy.", provider=self.name, provider_status=400)
-            return InvalidRequest("Bad request sent to Gemini.", provider=self.name, provider_status=400)
+            return BadProviderResponse("Bad request sent to Gemini.", provider=self.name, provider_status=400, retryable=False)
 
         if code in (500, 503) or isinstance(exc, genai_errors.ServerError):
             return ProviderUnavailable("Gemini service unavailable.", provider=self.name, provider_status=code or 503)
