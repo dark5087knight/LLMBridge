@@ -19,9 +19,9 @@ from unified_llm.core.errors import (
     RateLimited,
 )
 from unified_llm.core.schemas import (
-    ChatRequest,
-    ChatResponse,
     Message,
+    MessageRequest,
+    MessageResponse,
     ResponseMeta,
     Usage,
 )
@@ -42,8 +42,8 @@ def from_ollama_finish_reason(
     return "other"
 
 
-def to_ollama_payload(req: ChatRequest, keep_alive: str | None = None) -> dict[str, Any]:
-    """Pure function mapping a ChatRequest to Ollama /api/chat payload."""
+def to_ollama_payload(req: MessageRequest, keep_alive: str | None = None) -> dict[str, Any]:
+    """Pure function mapping a MessageRequest to Ollama /api/chat payload."""
     payload: dict[str, Any] = {
         "model": req.model,
         "messages": [{"role": m.role, "content": m.content} for m in req.messages],
@@ -83,12 +83,12 @@ def to_ollama_payload(req: ChatRequest, keep_alive: str | None = None) -> dict[s
 
 def from_ollama_response(
     native: dict[str, Any],
-    req: ChatRequest,
+    req: MessageRequest,
     ctx: CallContext,
     latency_ms: int = 0,
     warnings: list[Warning] | None = None,
-) -> ChatResponse:
-    """Pure function normalizing Ollama response to ChatResponse."""
+) -> MessageResponse:
+    """Pure function normalizing Ollama response to MessageResponse."""
     msg_dict = native.get("message", {})
     content = msg_dict.get("content", "")
     role = msg_dict.get("role", "assistant")
@@ -101,7 +101,7 @@ def from_ollama_response(
     if prompt_eval_count is not None and eval_count is not None:
         total_tokens = prompt_eval_count + eval_count
 
-    return ChatResponse(
+    return MessageResponse(
         id=ctx.request_id,
         provider=req.provider,
         model=req.model,
@@ -160,7 +160,7 @@ class OllamaAdapter(ProviderAdapter):
             await self._client.aclose()
             self._client = None
 
-    async def generate(self, req: ChatRequest, ctx: CallContext) -> ChatResponse:
+    async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
         if not self._client:
             await self.startup()
             assert self._client is not None

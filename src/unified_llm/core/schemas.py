@@ -7,7 +7,7 @@ from unified_llm.core.capabilities import Warning
 
 
 class Message(BaseModel):
-    """Canonical chat message."""
+    """Canonical message."""
 
     role: Literal["system", "user", "assistant"]
     content: str | list[Any]
@@ -50,9 +50,6 @@ class MessageRequest(BaseModel):
     metadata: dict[str, str] = Field(default_factory=dict)
 
 
-ChatRequest = MessageRequest
-
-
 class Usage(BaseModel):
     """Normalized token usage counters."""
 
@@ -81,9 +78,6 @@ class MessageResponse(BaseModel):
     warnings: list[Warning] = Field(default_factory=list)
     meta: ResponseMeta
     raw: dict[str, Any] | None = None
-
-
-ChatResponse = MessageResponse
 
 
 class StreamEvent(BaseModel):

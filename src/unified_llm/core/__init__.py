@@ -25,8 +25,6 @@ from unified_llm.core.errors import (
 )
 from unified_llm.core.retry import RetryPolicy, run_with_retries
 from unified_llm.core.schemas import (
-    ChatRequest,
-    ChatResponse,
     GenerationParams,
     Message,
     MessageRequest,
@@ -42,8 +40,6 @@ __all__ = [
     "BadProviderResponse",
     "CallContext",
     "Capabilities",
-    "ChatRequest",
-    "ChatResponse",
     "ClientError",
     "ContentRejected",
     "ContextLengthExceeded",

@@ -22,7 +22,7 @@ from unified_llm.core.errors import (
     ProviderUnavailable,
     RateLimited,
 )
-from unified_llm.core.schemas import ChatRequest, ChatResponse
+from unified_llm.core.schemas import MessageRequest, MessageResponse
 from unified_llm.providers._openai_style import from_openai_response, to_openai_payload
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
 
@@ -71,7 +71,7 @@ class GroqAdapter(ProviderAdapter):
             await self._client.close()
             self._client = None
 
-    async def generate(self, req: ChatRequest, ctx: CallContext) -> ChatResponse:
+    async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
         if not self._client:
             await self.startup()
             assert self._client is not None

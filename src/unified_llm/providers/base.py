@@ -8,7 +8,7 @@ from unified_llm.config.settings import ProviderConfig
 from unified_llm.core.capabilities import Capabilities
 from unified_llm.core.context import CallContext
 from unified_llm.core.errors import ProviderError, UnsupportedFeature
-from unified_llm.core.schemas import ChatRequest, ChatResponse, StreamEvent
+from unified_llm.core.schemas import MessageRequest, MessageResponse, StreamEvent
 
 
 @dataclass
@@ -59,14 +59,14 @@ class ProviderAdapter(ABC):
         pass
 
     @abstractmethod
-    async def generate(self, req: ChatRequest, ctx: CallContext) -> ChatResponse:
+    async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
         """Map canonical request -> execute provider call -> normalize response.
 
         Must raise only ProviderError subclasses on failure.
         """
         ...
 
-    def stream(self, req: ChatRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
+    def stream(self, req: MessageRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
         """Stream completion tokens as Server-Sent Events."""
         raise UnsupportedFeature(f"Streaming is not supported by provider '{self.name}'.", provider=self.name)
 

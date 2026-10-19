@@ -22,9 +22,9 @@ from unified_llm.core.errors import (
     RateLimited,
 )
 from unified_llm.core.schemas import (
-    ChatRequest,
-    ChatResponse,
     Message,
+    MessageRequest,
+    MessageResponse,
     ResponseMeta,
     Usage,
 )
@@ -50,9 +50,9 @@ def from_gemini_finish_reason(
 
 
 def to_gemini_payload(
-    req: ChatRequest,
+    req: MessageRequest,
 ) -> tuple[list[types.Content], types.GenerateContentConfig, list[Warning]]:
-    """Pure function mapping a ChatRequest to Gemini contents and GenerateContentConfig."""
+    """Pure function mapping a MessageRequest to Gemini contents and GenerateContentConfig."""
     warnings: list[Warning] = []
     system_texts: list[str] = []
     contents: list[types.Content] = []
@@ -115,12 +115,12 @@ def to_gemini_payload(
 
 def from_gemini_response(
     native: Any,
-    req: ChatRequest,
+    req: MessageRequest,
     ctx: CallContext,
     latency_ms: int = 0,
     warnings: list[Warning] | None = None,
-) -> ChatResponse:
-    """Pure function normalizing a Gemini response to canonical ChatResponse."""
+) -> MessageResponse:
+    """Pure function normalizing a Gemini response to canonical MessageResponse."""
     content_text = ""
     finish_reason_raw = None
 
@@ -155,7 +155,7 @@ def from_gemini_response(
         else:
             raw_dict = {"response": str(native)}
 
-    return ChatResponse(
+    return MessageResponse(
         id=ctx.request_id,
         provider=req.provider,
         model=req.model,
@@ -208,7 +208,7 @@ class GeminiAdapter(ProviderAdapter):
     async def shutdown(self) -> None:
         self._client = None
 
-    async def generate(self, req: ChatRequest, ctx: CallContext) -> ChatResponse:
+    async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
         if not self._client:
             await self.startup()
             assert self._client is not None

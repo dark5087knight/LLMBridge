@@ -15,7 +15,7 @@ from tenacity import (
 
 from unified_llm.core.context import Deadline
 from unified_llm.core.errors import ProviderError, ProviderTimeout
-from unified_llm.core.schemas import ChatRequest
+from unified_llm.core.schemas import MessageRequest
 
 logger = get_logger(__name__)
 
@@ -36,7 +36,7 @@ class RetryPolicy:
         """Build a RetryPolicy from global ServiceSettings."""
         return cls(max_attempts=settings.max_attempts_cap)
 
-    def for_request(self, req: ChatRequest) -> "RetryPolicy":
+    def for_request(self, req: MessageRequest) -> "RetryPolicy":
         """Produce request-specific policy.
 
         options.max_retries can lower the attempt count but never raise it above server cap.

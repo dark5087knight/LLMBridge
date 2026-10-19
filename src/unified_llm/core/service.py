@@ -14,8 +14,6 @@ from unified_llm.core.errors import (
 from unified_llm.core.registry import ProviderRegistry
 from unified_llm.core.retry import RetryPolicy, run_with_retries
 from unified_llm.core.schemas import (
-    ChatRequest,
-    ChatResponse,
     MessageRequest,
     MessageResponse,
 )
@@ -25,7 +23,7 @@ logger = get_logger(__name__)
 
 
 class LLMService:
-    """Service orchestrating execution of canonical LLM message completions for chat, tools, and agents."""
+    """Service orchestrating execution of canonical LLM message completions for tools and agents."""
 
     def __init__(
         self,
@@ -69,7 +67,7 @@ class LLMService:
         request_policy = self._policy.for_request(req)
 
         # 6. Execute with bounded retries
-        async def _attempt_call(attempt: int) -> ChatResponse:
+        async def _attempt_call(attempt: int) -> MessageResponse:
             call_ctx = CallContext(
                 deadline=deadline,
                 attempt=attempt,
@@ -137,6 +135,5 @@ class LLMService:
 
         return resp
 
-    # Ergonomic and backwards-compatible aliases
+    # Ergonomic aliases
     create_message = execute
-    chat = execute

@@ -33,24 +33,4 @@ async def stream_message(
     )
 
 
-# Backwards-compatibility aliases for /v1/chat
-@router.post("/chat", response_model=MessageResponse, include_in_schema=False)
-async def chat_compat(
-    request: MessageRequest,
-    service: LLMService = Depends(get_service),
-    ctx: RequestContext = Depends(get_request_context),
-) -> MessageResponse:
-    """Deprecated: Use /v1/messages instead."""
-    return await service.execute(request, ctx)
 
-
-@router.post("/chat/stream", include_in_schema=False)
-async def chat_stream_compat(
-    request: MessageRequest,
-    ctx: RequestContext = Depends(get_request_context),
-) -> None:
-    """Deprecated: Use /v1/messages/stream instead."""
-    raise UnsupportedFeature(
-        "Streaming completion (/v1/messages/stream) is scheduled for Phase 2.",
-        provider=request.provider,
-    )

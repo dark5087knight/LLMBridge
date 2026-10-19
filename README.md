@@ -32,7 +32,7 @@ uvicorn unified_llm.main:create_app --factory --host 0.0.0.0 --port 8000 --reloa
 ```
 
 ### 4. API Endpoints
-- `POST /v1/messages` - Canonical message completion for dialogues, agent loops, and tool execution (supports `/v1/chat` as alias)
+- `POST /v1/messages` - Canonical message execution for dialogues, agent loops, and tool calling
 - `GET /v1/providers` - Inspect configured providers and capabilities
 - `GET /healthz` - Liveness health check
 - `GET /readyz` - Readiness probe (`?deep=true` for live upstream checks)
@@ -42,7 +42,7 @@ uvicorn unified_llm.main:create_app --factory --host 0.0.0.0 --port 8000 --reloa
 
 ## Messages API Specification (`POST /v1/messages`)
 
-The `/v1/messages` endpoint provides a unified, provider-agnostic interface for chat completions, multi-turn dialogues, tool calling, and autonomous agent loops across all upstream providers (OpenAI, Groq, Google Gemini, Ollama).
+The `/v1/messages` endpoint provides a unified, provider-agnostic interface for multi-turn dialogues, tool calling, and autonomous agent loops across all upstream providers (OpenAI, Groq, Google Gemini, Ollama).
 
 ### HTTP Headers
 

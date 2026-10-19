@@ -4,16 +4,16 @@ from typing import Any, Literal
 from unified_llm.core.capabilities import Warning
 from unified_llm.core.context import CallContext
 from unified_llm.core.schemas import (
-    ChatRequest,
-    ChatResponse,
     Message,
+    MessageRequest,
+    MessageResponse,
     ResponseMeta,
     Usage,
 )
 
 
-def to_openai_payload(req: ChatRequest) -> dict[str, Any]:
-    """Pure function mapping a canonical ChatRequest to an OpenAI-compatible JSON payload."""
+def to_openai_payload(req: MessageRequest) -> dict[str, Any]:
+    """Pure function mapping a canonical MessageRequest to an OpenAI-compatible JSON payload."""
     payload: dict[str, Any] = {
         "model": req.model,
         "messages": [{"role": m.role, "content": m.content} for m in req.messages],
@@ -64,12 +64,12 @@ def from_openai_finish_reason(
 
 def from_openai_response(
     native: Any,
-    req: ChatRequest,
+    req: MessageRequest,
     ctx: CallContext,
     latency_ms: int = 0,
     warnings: list[Warning] | None = None,
-) -> ChatResponse:
-    """Pure function normalizing an OpenAI SDK response object or dictionary to ChatResponse."""
+) -> MessageResponse:
+    """Pure function normalizing an OpenAI SDK response object or dictionary to MessageResponse."""
     # Handle dict or object attributes
     if isinstance(native, dict):
         choices = native.get("choices", [])
@@ -108,7 +108,7 @@ def from_openai_response(
 
     finish_reason = from_openai_finish_reason(finish_reason_raw)
 
-    return ChatResponse(
+    return MessageResponse(
         id=ctx.request_id,
         provider=req.provider,
         model=req.model,

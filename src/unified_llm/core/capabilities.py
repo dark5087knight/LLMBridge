@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from unified_llm.core.schemas import ChatRequest
+    from unified_llm.core.schemas import MessageRequest
 
 
 class Warning(BaseModel):
@@ -38,7 +38,7 @@ class Capabilities:
 
 
 def validate_against_capabilities(
-    req: "ChatRequest",
+    req: "MessageRequest",
     capabilities: Capabilities,
     strict: bool = False,
 ) -> list[Warning]:
