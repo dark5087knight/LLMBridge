@@ -66,11 +66,9 @@ class ProviderAdapter(ABC):
         """
         ...
 
-    async def stream(self, req: ChatRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
+    def stream(self, req: ChatRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
         """Stream completion tokens as Server-Sent Events."""
         raise UnsupportedFeature(f"Streaming is not supported by provider '{self.name}'.", provider=self.name)
-        if False:
-            yield StreamEvent(event="start", data={})
 
     async def health_check(self) -> HealthStatus:
         """Execute a deep health check for the provider backend."""
