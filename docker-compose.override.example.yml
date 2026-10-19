@@ -1,0 +1,19 @@
+# docker-compose.override.example.yml
+# Copy to docker-compose.override.yml for local GPU pass-through or custom development mounts.
+services:
+  ulil:
+    environment:
+      ULIL_LOG_LEVEL: DEBUG
+      ULIL_LOG_FORMAT: console
+    volumes:
+      - ./src:/app/src
+
+  # For GPU acceleration with Ollama on Linux/WSL2
+  # ollama:
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]

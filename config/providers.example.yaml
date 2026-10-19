@@ -1,0 +1,31 @@
+# Example provider configuration
+# Note: Sensitive secrets (api_key) should preferably be loaded from environment variables
+# or referenced via ${ENV_VAR} interpolation.
+providers:
+  openai:
+    enabled: true
+    timeout_s: 60
+    allowed_models:
+      - "gpt-4o-mini"
+      - "gpt-4o"
+      - "o1-mini"
+  groq:
+    enabled: true
+    timeout_s: 60
+    allowed_models:
+      - "llama-3.3-70b-versatile"
+      - "llama-3.1-8b-instant"
+  gemini:
+    enabled: true
+    timeout_s: 60
+    allowed_models:
+      - "gemini-1.5-flash"
+      - "gemini-1.5-pro"
+      - "gemini-2.0-flash-exp"
+  ollama:
+    enabled: true
+    base_url: "http://localhost:11434"
+    timeout_s: 180
+    max_concurrency: 4
+    extra:
+      keep_alive: "10m"

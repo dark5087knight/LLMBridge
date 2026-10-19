@@ -1,0 +1,33 @@
+services:
+  ulil:
+    build: .
+    image: unified-llm-integration-layer:latest
+    env_file: .env
+    environment:
+      ULIL_CONFIG_FILE: /app/config/providers.yaml
+    volumes:
+      - ./config/providers.example.yaml:/app/config/providers.yaml:ro
+    ports:
+      - "8000:8000"
+    networks:
+      - llm-net
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # Optional local model backend: docker compose --profile local up
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - llm-net
+    restart: unless-stopped
+
+networks:
+  llm-net:
+
+volumes:
+  ollama-data:
