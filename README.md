@@ -138,6 +138,15 @@ A request payload represents a canonical `MessageRequest`:
 | `strict_params` | `bool` | `false` | **Lenient mode** (`false`): Drops unsupported parameters and returns warnings. **Strict mode** (`true`): Fails fast with `400 Bad Request` if a parameter is not supported by the provider's declared capabilities. |
 | `include_raw` | `bool` | `false` | When `true`, includes the unmodified upstream provider response in `raw`. |
 
+#### Provider-Specific Options (`provider_options`)
+
+Provider-specific pass-through arguments. For **Ollama**, you can specify or override the target Ollama host per request:
+
+| Option | Type | Example | Description |
+|---|---|---|---|
+| `base_url` | `string` | `"http://192.168.1.50:11434"` | Target Ollama instance address. Dynamically overrides the server default (`ULIL_PROVIDERS__OLLAMA__BASE_URL`) for this request. |
+
+
 ---
 
 ### Agent Loops & Tool Execution Pattern

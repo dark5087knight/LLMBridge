@@ -74,9 +74,14 @@ def to_ollama_payload(req: MessageRequest, keep_alive: str | None = None) -> dic
     if p.response_format == "json":
         payload["format"] = "json"
 
-    # Merge provider_options escape hatch
+    # Merge provider_options escape hatch (excluding connection routing parameters)
     if req.provider_options:
-        payload.update(req.provider_options)
+        extra_options = {
+            k: v
+            for k, v in req.provider_options.items()
+            if k not in ("base_url", "host", "address")
+        }
+        payload.update(extra_options)
 
     return payload
 
@@ -169,9 +174,17 @@ class OllamaAdapter(ProviderAdapter):
         payload = to_ollama_payload(req, keep_alive=keep_alive)
         start_time = time.monotonic()
 
+        # Dynamic per-request base_url override via provider_options, falling back to configured base_url
+        custom_base = (
+            req.provider_options.get("base_url")
+            or req.provider_options.get("host")
+            or req.provider_options.get("address")
+        )
+        endpoint = f"{str(custom_base).rstrip('/')}/api/chat" if custom_base else "/api/chat"
+
         try:
             resp = await self._client.post(
-                "/api/chat",
+                endpoint,
                 json=payload,
                 timeout=ctx.remaining_s(),
             )
