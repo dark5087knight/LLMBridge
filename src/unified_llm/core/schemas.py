@@ -18,11 +18,11 @@ class GenerationParams(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    temperature: float | None = Field(None, ge=0.0)
-    top_p: float | None = Field(None, gt=0.0, le=1.0)
-    top_k: int | None = Field(None, ge=1)
-    max_tokens: int | None = Field(None, ge=1)
-    stop: list[str] | None = Field(None, max_length=16)
+    temperature: float | None = Field(default=None, ge=0.0)
+    top_p: float | None = Field(default=None, gt=0.0, le=1.0)
+    top_k: int | None = Field(default=None, ge=1)
+    max_tokens: int | None = Field(default=None, ge=1)
+    stop: list[str] | None = Field(default=None, max_length=16)
     seed: int | None = None
     presence_penalty: float | None = None
     frequency_penalty: float | None = None
@@ -32,8 +32,8 @@ class GenerationParams(BaseModel):
 class RequestOptions(BaseModel):
     """Execution options requested by the caller."""
 
-    timeout_s: float | None = Field(None, gt=0.0, le=600.0)
-    max_retries: int | None = Field(None, ge=0, le=5)
+    timeout_s: float | None = Field(default=None, gt=0.0, le=600.0)
+    max_retries: int | None = Field(default=None, ge=0, le=5)
     strict_params: bool = False
     include_raw: bool = False
 

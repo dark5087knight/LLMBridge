@@ -1,5 +1,6 @@
 """Dependency injection providers for FastAPI routes."""
 
+from typing import cast
 from fastapi import Request
 
 from unified_llm.config.settings import ServiceSettings
@@ -10,17 +11,17 @@ from unified_llm.core.service import LLMService
 
 def get_service(request: Request) -> LLMService:
     """Retrieve the LLMService singleton from application state."""
-    return request.app.state.service
+    return cast(LLMService, request.app.state.service)
 
 
 def get_registry(request: Request) -> ProviderRegistry:
     """Retrieve the ProviderRegistry singleton from application state."""
-    return request.app.state.registry
+    return cast(ProviderRegistry, request.app.state.registry)
 
 
 def get_settings(request: Request) -> ServiceSettings:
     """Retrieve the ServiceSettings singleton from application state."""
-    return request.app.state.settings
+    return cast(ServiceSettings, request.app.state.settings)
 
 
 def get_request_context(request: Request) -> RequestContext:
