@@ -10,9 +10,8 @@ class MetricsRegistry:
     def __init__(self) -> None:
         self._lock = Lock()
         self._requests_total: dict[tuple[str, str, str], int] = defaultdict(int)
-        self._attempts_total: dict[tuple[str, str], int] = defaultdict(int)
+        self._attempts_total: dict[tuple[str, str, str], int] = defaultdict(int)
         self._errors_total: dict[tuple[str, str], int] = defaultdict(int)
-        self._tokens_total: dict[tuple[str, str, str], int] = defaultdict(int)
         self._inflight: dict[str, int] = defaultdict(int)
         self._durations: dict[tuple[str, str], list[float]] = defaultdict(list)
 
@@ -27,10 +26,6 @@ class MetricsRegistry:
     def inc_errors(self, provider: str, error_type: str) -> None:
         with self._lock:
             self._errors_total[(provider, error_type)] += 1
-
-    def inc_tokens(self, provider: str, model: str, direction: str, count: int) -> None:
-        with self._lock:
-            self._tokens_total[(provider, model, direction)] += count
 
     def inc_inflight(self, provider: str) -> None:
         with self._lock:
@@ -69,13 +64,6 @@ class MetricsRegistry:
             ])
             for (p, e), val in self._errors_total.items():
                 lines.append(f'ulil_errors_total{{provider="{p}",error_type="{e}"}} {val}')
-
-            lines.extend([
-                "# HELP ulil_tokens_total Total tokens processed.",
-                "# TYPE ulil_tokens_total counter",
-            ])
-            for (p, m, d), val in self._tokens_total.items():
-                lines.append(f'ulil_tokens_total{{provider="{p}",model="{m}",direction="{d}"}} {val}')
 
             lines.extend([
                 "# HELP ulil_inflight_requests Current number of requests being processed.",

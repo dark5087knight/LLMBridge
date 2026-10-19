@@ -118,10 +118,6 @@ class LLMService:
         # 8. Record metrics
         metrics.inc_requests(req.provider, req.model, "success")
         metrics.observe_duration(req.provider, req.model, deadline.elapsed_s())
-        if resp.usage.input_tokens:
-            metrics.inc_tokens(req.provider, req.model, "input", resp.usage.input_tokens)
-        if resp.usage.output_tokens:
-            metrics.inc_tokens(req.provider, req.model, "output", resp.usage.output_tokens)
 
         # 9. Structured completion log
         logger.info(
@@ -132,8 +128,6 @@ class LLMService:
             attempts=attempts_made,
             latency_ms=resp.meta.latency_ms,
             finish_reason=resp.finish_reason,
-            input_tokens=resp.usage.input_tokens,
-            output_tokens=resp.usage.output_tokens,
         )
 
         return resp
