@@ -1,7 +1,7 @@
 """Gemini provider adapter implementation using official google-genai SDK."""
 
 import time
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 from google import genai
 from google.genai import errors as genai_errors, types
 
@@ -239,7 +239,7 @@ class GeminiAdapter(ProviderAdapter):
         try:
             response = await client.aio.models.generate_content(
                 model=req.model,
-                contents=contents,
+                contents=cast(types.ContentListUnion, contents),
                 config=config,
             )
         except Exception as exc:

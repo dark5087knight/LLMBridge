@@ -30,9 +30,7 @@ class ProviderRegistry:
     def discover_entry_points(self) -> None:
         """Discover third-party adapter classes declared via entry points."""
         try:
-            entry_points = importlib.metadata.entry_points()
-            # Compatible with Python 3.10+ entry_points syntax
-            selected = entry_points.select(group="unified_llm.providers") if hasattr(entry_points, "select") else entry_points.get("unified_llm.providers", [])
+            selected = importlib.metadata.entry_points(group="unified_llm.providers")
             for ep in selected:
                 try:
                     adapter_cls = ep.load()
