@@ -67,8 +67,8 @@ class ProviderRegistry:
         for name, adapter_cls in self._adapter_classes.items():
             config = configs.get(name)
             if not config:
-                # Default unconfigured provider config
-                config = ProviderConfig(enabled=False)
+                # Default provider config - enabled by default so per-request keys work
+                config = ProviderConfig(enabled=True)
 
             if config.enabled:
                 try:

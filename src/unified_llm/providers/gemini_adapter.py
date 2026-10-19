@@ -207,16 +207,37 @@ class GeminiAdapter(ProviderAdapter):
     async def shutdown(self) -> None:
         self._client = None
 
+    def _resolve_api_key(self, req: MessageRequest, ctx: CallContext) -> str | None:
+        if req.api_key:
+            return req.api_key
+        if req.provider_options and req.provider_options.get("api_key"):
+            return str(req.provider_options["api_key"])
+        if ctx.provider_key:
+            return ctx.provider_key
+        if self.config.api_key:
+            return self.config.api_key.get_secret_value()
+        return None
+
     async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
-        if not self._client:
-            await self.startup()
-            assert self._client is not None
+        api_key = self._resolve_api_key(req, ctx)
+        if not api_key or api_key == "missing":
+            raise ProviderAuthError(
+                "No Gemini API key found. Provide it in the request via 'api_key', 'provider_options.api_key', or 'Authorization: Bearer <key>' / 'X-Provider-Key' header.",
+                provider="gemini",
+                provider_status=401,
+            )
+
+        client = (
+            self._client
+            if (self._client and self.config.api_key and api_key == self.config.api_key.get_secret_value())
+            else genai.Client(api_key=api_key)
+        )
 
         contents, config, warnings = to_gemini_payload(req)
         start_time = time.monotonic()
 
         try:
-            response = await self._client.aio.models.generate_content(
+            response = await client.aio.models.generate_content(
                 model=req.model,
                 contents=contents,
                 config=config,

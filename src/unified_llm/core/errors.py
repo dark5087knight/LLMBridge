@@ -95,7 +95,7 @@ class ProviderError(ULILError):
 
 class ProviderAuthError(ProviderError):
     type = "provider_auth_error"
-    http_status = 502
+    http_status = 401
     retryable = False
 
 

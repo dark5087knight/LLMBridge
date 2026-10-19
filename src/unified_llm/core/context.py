@@ -11,6 +11,7 @@ class RequestContext:
     request_id: str
     trace_id: str | None = None
     caller: str | None = None
+    provider_key: str | None = None
 
 
 @dataclass
@@ -42,6 +43,7 @@ class CallContext:
     attempt: int
     request_id: str
     per_attempt_timeout_s: float = 60.0
+    provider_key: str | None = None
 
     def remaining_s(self) -> float:
         """Compute the per-attempt timeout bounded by the total remaining deadline."""

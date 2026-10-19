@@ -28,4 +28,21 @@ def get_request_context(request: Request) -> RequestContext:
     req_id = getattr(request.state, "request_id", "req_unknown")
     trace_id = request.headers.get("X-Trace-ID")
     caller = request.headers.get("X-Caller-ID")
-    return RequestContext(request_id=req_id, trace_id=trace_id, caller=caller)
+
+    # Extract provider key from headers if passed
+    provider_key = (
+        request.headers.get("X-Provider-Key")
+        or request.headers.get("X-API-Key")
+        or request.headers.get("X-Groq-API-Key")
+    )
+    if not provider_key:
+        auth = request.headers.get("Authorization")
+        if auth and auth.startswith("Bearer "):
+            provider_key = auth.split(" ", 1)[1].strip()
+
+    return RequestContext(
+        request_id=req_id,
+        trace_id=trace_id,
+        caller=caller,
+        provider_key=provider_key,
+    )

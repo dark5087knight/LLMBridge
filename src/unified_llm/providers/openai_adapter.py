@@ -70,21 +70,50 @@ class OpenAIAdapter(ProviderAdapter):
             await self._client.close()
             self._client = None
 
+    def _resolve_api_key(self, req: MessageRequest, ctx: CallContext) -> str | None:
+        if req.api_key:
+            return req.api_key
+        if req.provider_options and req.provider_options.get("api_key"):
+            return str(req.provider_options["api_key"])
+        if ctx.provider_key:
+            return ctx.provider_key
+        if self.config.api_key:
+            return self.config.api_key.get_secret_value()
+        return None
+
     async def generate(self, req: MessageRequest, ctx: CallContext) -> MessageResponse:
-        if not self._client:
-            await self.startup()
-            assert self._client is not None
+        api_key = self._resolve_api_key(req, ctx)
+        if not api_key or api_key == "missing":
+            raise ProviderAuthError(
+                "No OpenAI API key found. Provide it in the request via 'api_key', 'provider_options.api_key', or 'Authorization: Bearer <key>' / 'X-Provider-Key' header.",
+                provider="openai",
+                provider_status=401,
+            )
+
+        client = (
+            self._client
+            if (self._client and self.config.api_key and api_key == self.config.api_key.get_secret_value())
+            else AsyncOpenAI(
+                api_key=api_key,
+                base_url=self.config.base_url,
+                max_retries=0,
+                timeout=self.config.timeout_s,
+            )
+        )
 
         start_time = time.monotonic()
         payload = to_openai_payload(req)
 
         try:
-            native = await self._client.chat.completions.create(
+            native = await client.chat.completions.create(
                 **payload,
                 timeout=ctx.remaining_s(),
             )
         except Exception as exc:
             raise self.translate_error(exc) from exc
+        finally:
+            if client != self._client:
+                await client.close()
 
         latency_ms = int((time.monotonic() - start_time) * 1000)
         return from_openai_response(native, req, ctx, latency_ms=latency_ms)

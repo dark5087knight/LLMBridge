@@ -39,9 +39,10 @@ def to_openai_payload(req: MessageRequest) -> dict[str, Any]:
     elif p.response_format == "text":
         payload["response_format"] = {"type": "text"}
 
-    # Merge provider_options escape hatch
+    # Merge provider_options escape hatch (excluding internal routing/auth parameters)
     if req.provider_options:
-        payload.update(req.provider_options)
+        extra = {k: v for k, v in req.provider_options.items() if k != "api_key"}
+        payload.update(extra)
 
     return payload
 

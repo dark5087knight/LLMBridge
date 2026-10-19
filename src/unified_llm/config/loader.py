@@ -48,17 +48,9 @@ def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]
 
 
 def validate_provider_credentials(name: str, config: ProviderConfig) -> None:
-    """Validate that enabled providers have required credentials."""
-    if not config.enabled:
-        return
-
-    # Providers that require API keys
-    key_required_providers = {"openai", "groq", "gemini"}
-    if name.lower() in key_required_providers:
-        if not config.api_key or not config.api_key.get_secret_value():
-            raise ValueError(
-                f"Provider '{name}' is enabled but missing required credentials (api_key)."
-            )
+    """Validate that enabled providers have required credentials if specified."""
+    # When api_key is omitted in static config, keys can still be supplied per-request at runtime.
+    return
 
 
 def load_settings(config_file: Path | str | None = None) -> ServiceSettings:

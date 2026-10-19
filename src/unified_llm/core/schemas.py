@@ -47,6 +47,7 @@ class MessageRequest(BaseModel):
     params: GenerationParams = Field(default_factory=GenerationParams)
     options: RequestOptions = Field(default_factory=RequestOptions)
     provider_options: dict[str, Any] = Field(default_factory=dict)
+    api_key: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
 
 

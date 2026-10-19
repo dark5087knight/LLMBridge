@@ -73,6 +73,7 @@ class LLMService:
                 attempt=attempt,
                 request_id=ctx.request_id,
                 per_attempt_timeout_s=configured_timeout,
+                provider_key=ctx.provider_key,
             )
 
             # Acquire concurrency slot bounded by remaining deadline
