@@ -17,11 +17,13 @@ from unified_llm.core.errors import (
     RateLimited,
 )
 from unified_llm.core.schemas import (
+    FunctionCall,
     Message,
     MessageRequest,
     MessageResponse,
     ResponseMeta,
     StreamEvent,
+    ToolCall,
     Usage,
 )
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
@@ -29,25 +31,65 @@ from unified_llm.providers.base import HealthStatus, ProviderAdapter
 
 def from_ollama_finish_reason(
     done_reason: str | None,
-) -> Literal["stop", "length", "content_filter", "error", "other"]:
+) -> Literal["stop", "length", "tool_calls", "content_filter", "error", "other"]:
     """Map Ollama done_reason to canonical finish reason."""
     if not done_reason:
         return "stop"
-    dr = done_reason.lower()
+    dr = str(done_reason).lower()
     if dr == "stop":
         return "stop"
     if dr in ("length", "max_tokens"):
         return "length"
+    if dr in ("tool_calls", "function_call"):
+        return "tool_calls"
     return "other"
 
 
 def to_ollama_payload(req: MessageRequest, keep_alive: str | None = None) -> dict[str, Any]:
     """Pure function mapping a MessageRequest to Ollama /api/chat payload."""
+    ollama_messages: list[dict[str, Any]] = []
+    for m in req.messages:
+        msg_dict: dict[str, Any] = {"role": m.role}
+        if m.content is not None:
+            msg_dict["content"] = m.content
+        if m.tool_calls:
+            tool_calls_list = []
+            for tc in m.tool_calls:
+                args = tc.function.arguments
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except Exception:
+                        pass
+                tool_calls_list.append(
+                    {
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": args,
+                        }
+                    }
+                )
+            msg_dict["tool_calls"] = tool_calls_list
+        ollama_messages.append(msg_dict)
+
     payload: dict[str, Any] = {
         "model": req.model,
-        "messages": [{"role": m.role, "content": m.content} for m in req.messages],
+        "messages": ollama_messages,
         "stream": False,
     }
+
+    if req.tools:
+        payload["tools"] = [
+            {
+                "type": t.type,
+                "function": {
+                    "name": t.function.name,
+                    "description": t.function.description,
+                    "parameters": t.function.parameters,
+                },
+            }
+            for t in req.tools
+        ]
 
     if keep_alive:
         payload["keep_alive"] = keep_alive
@@ -97,7 +139,24 @@ def from_ollama_response(
     content = msg_dict.get("content", "")
     role = msg_dict.get("role", "assistant")
 
+    parsed_tool_calls: list[ToolCall] | None = None
+    raw_tc = msg_dict.get("tool_calls")
+    if raw_tc:
+        parsed_tool_calls = [
+            ToolCall(
+                id=f"call_{idx}_{tc.get('function', {}).get('name', '')}",
+                type="function",
+                function=FunctionCall(
+                    name=tc.get("function", {}).get("name", ""),
+                    arguments=tc.get("function", {}).get("arguments", {}),
+                ),
+            )
+            for idx, tc in enumerate(raw_tc)
+        ]
+
     finish_reason = from_ollama_finish_reason(native.get("done_reason"))
+    if parsed_tool_calls and finish_reason == "stop":
+        finish_reason = "tool_calls"
 
     prompt_eval_count = native.get("prompt_eval_count")
     eval_count = native.get("eval_count")
@@ -110,7 +169,7 @@ def from_ollama_response(
         provider=req.provider,
         model=req.model,
         model_served=native.get("model"),
-        message=Message(role=role, content=content),
+        message=Message(role=role, content=content, tool_calls=parsed_tool_calls),
         finish_reason=finish_reason,
         usage=Usage(
             input_tokens=prompt_eval_count,
@@ -136,7 +195,7 @@ class OllamaAdapter(ProviderAdapter):
         stop_sequences=True,
         penalties=False,
         multimodal_input=False,
-        tool_calling=False,
+        tool_calling=True,
         supported_params=frozenset({
             "temperature",
             "top_p",

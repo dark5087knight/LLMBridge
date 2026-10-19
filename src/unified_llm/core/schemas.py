@@ -6,11 +6,44 @@ from pydantic import BaseModel, ConfigDict, Field
 from unified_llm.core.capabilities import Warning
 
 
-class Message(BaseModel):
-    """Canonical message."""
+class FunctionDefinition(BaseModel):
+    """Specification of a callable function."""
 
-    role: Literal["system", "user", "assistant"]
-    content: str | list[Any]
+    name: str
+    description: str | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolDefinition(BaseModel):
+    """Canonical tool definition available for model invocation."""
+
+    type: Literal["function"] = "function"
+    function: FunctionDefinition
+
+
+class FunctionCall(BaseModel):
+    """Name and arguments for a function call requested by the model."""
+
+    name: str
+    arguments: str | dict[str, Any]
+
+
+class ToolCall(BaseModel):
+    """Canonical model tool invocation call."""
+
+    id: str
+    type: Literal["function"] = "function"
+    function: FunctionCall
+
+
+class Message(BaseModel):
+    """Canonical message supporting dialogues, agent loops, and tool execution."""
+
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str | list[Any] | None = None
+    name: str | None = None
+    tool_call_id: str | None = None
+    tool_calls: list[ToolCall] | None = None
 
 
 class GenerationParams(BaseModel):
@@ -44,6 +77,8 @@ class MessageRequest(BaseModel):
     provider: str
     model: str
     messages: list[Message] = Field(min_length=1)
+    tools: list[ToolDefinition] | None = None
+    tool_choice: Literal["auto", "none", "required"] | dict[str, Any] | None = None
     params: GenerationParams = Field(default_factory=GenerationParams)
     options: RequestOptions = Field(default_factory=RequestOptions)
     provider_options: dict[str, Any] = Field(default_factory=dict)
@@ -74,7 +109,7 @@ class MessageResponse(BaseModel):
     model: str
     model_served: str | None = None
     message: Message
-    finish_reason: Literal["stop", "length", "content_filter", "error", "other"]
+    finish_reason: Literal["stop", "length", "tool_calls", "content_filter", "error", "other"]
     usage: Usage
     warnings: list[Warning] = Field(default_factory=list)
     meta: ResponseMeta

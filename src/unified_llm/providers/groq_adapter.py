@@ -43,7 +43,7 @@ class GroqAdapter(ProviderAdapter):
         stop_sequences=True,
         penalties=True,
         multimodal_input=False,
-        tool_calling=False,
+        tool_calling=True,
         supported_params=frozenset({
             "temperature",
             "top_p",

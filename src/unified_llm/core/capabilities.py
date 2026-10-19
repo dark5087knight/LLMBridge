@@ -87,4 +87,18 @@ def validate_against_capabilities(
                 )
             )
 
+    if req.tools and not capabilities.tool_calling:
+        if strict:
+            raise UnsupportedParameter(
+                f"Tool calling is not supported by provider '{req.provider}'.",
+                provider=req.provider,
+            )
+        warnings.append(
+            Warning(
+                code="tools_ignored",
+                param="tools",
+                message=f"Tool calling is not supported by provider '{req.provider}' and was ignored.",
+            )
+        )
+
     return warnings

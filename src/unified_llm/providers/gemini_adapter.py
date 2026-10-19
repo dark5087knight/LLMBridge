@@ -1,5 +1,4 @@
-"""Gemini provider adapter implementation using official google-genai SDK."""
-
+import json
 import time
 from typing import Any, AsyncIterator, ClassVar, Literal, cast
 from google import genai
@@ -21,11 +20,13 @@ from unified_llm.core.errors import (
     RateLimited,
 )
 from unified_llm.core.schemas import (
+    FunctionCall,
     Message,
     MessageRequest,
     MessageResponse,
     ResponseMeta,
     StreamEvent,
+    ToolCall,
     Usage,
 )
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
@@ -33,11 +34,13 @@ from unified_llm.providers.base import HealthStatus, ProviderAdapter
 
 def from_gemini_finish_reason(
     reason: str | None,
-) -> Literal["stop", "length", "content_filter", "error", "other"]:
+) -> Literal["stop", "length", "tool_calls", "content_filter", "error", "other"]:
     """Map Gemini finish reason enum string to canonical finish reason."""
     if not reason:
         return "stop"
     r = str(reason).upper()
+    if "FUNCTION_CALL" in r or "TOOL_CALL" in r:
+        return "tool_calls"
     if r in ("STOP", "FINISH_REASON_STOP"):
         return "stop"
     if r in ("MAX_TOKENS", "LENGTH", "FINISH_REASON_MAX_TOKENS"):
@@ -58,16 +61,49 @@ def to_gemini_payload(
     contents: list[types.Content] = []
 
     for msg in req.messages:
-        content_str = msg.content if isinstance(msg.content, str) else str(msg.content)
+        content_str = msg.content if isinstance(msg.content, str) else str(msg.content or "")
         if msg.role == "system":
             system_texts.append(content_str)
-        elif msg.role == "assistant":
+        elif msg.role == "tool":
+            resp_dict: dict[str, Any]
+            if isinstance(msg.content, str):
+                try:
+                    loaded = json.loads(msg.content)
+                    resp_dict = loaded if isinstance(loaded, dict) else {"output": loaded}
+                except Exception:
+                    resp_dict = {"output": msg.content}
+            elif isinstance(msg.content, dict):
+                resp_dict = msg.content
+            else:
+                resp_dict = {"output": str(msg.content) if msg.content is not None else ""}
+            fn_name = msg.name or "function_response"
             contents.append(
                 types.Content(
-                    role="model",
-                    parts=[types.Part.from_text(text=content_str)],
+                    role="user",
+                    parts=[types.Part.from_function_response(name=fn_name, response=resp_dict)],
                 )
             )
+        elif msg.role == "assistant":
+            parts: list[types.Part] = []
+            if msg.content:
+                parts.append(types.Part.from_text(text=str(msg.content)))
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    fn_args = tc.function.arguments
+                    if isinstance(fn_args, str):
+                        try:
+                            fn_args = json.loads(fn_args)
+                        except Exception:
+                            fn_args = {"raw_args": fn_args}
+                    parts.append(
+                        types.Part(
+                            function_call=types.FunctionCall(
+                                name=tc.function.name,
+                                args=fn_args,
+                            )
+                        )
+                    )
+            contents.append(types.Content(role="model", parts=parts or [types.Part.from_text(text="")]))
         else:  # user
             contents.append(
                 types.Content(
@@ -105,6 +141,17 @@ def to_gemini_payload(
     if p.response_format == "json":
         config_kwargs["response_mime_type"] = "application/json"
 
+    if req.tools:
+        fn_decls = [
+            types.FunctionDeclaration(
+                name=t.function.name,
+                description=t.function.description,
+                parameters_json_schema=t.function.parameters,
+            )
+            for t in req.tools
+        ]
+        config_kwargs["tools"] = [types.Tool(function_declarations=fn_decls)]
+
     # Merge provider_options if provided
     if req.provider_options:
         config_kwargs.update(req.provider_options)
@@ -121,8 +168,9 @@ def from_gemini_response(
     warnings: list[Warning] | None = None,
 ) -> MessageResponse:
     """Pure function normalizing a Gemini response to canonical MessageResponse."""
-    content_text = ""
+    content_text: str | None = None
     finish_reason_raw = None
+    parsed_tool_calls: list[ToolCall] | None = None
 
     candidates = getattr(native, "candidates", None)
     if candidates and len(candidates) > 0:
@@ -130,12 +178,32 @@ def from_gemini_response(
         finish_reason_raw = getattr(candidate, "finish_reason", None)
         if candidate.content and candidate.content.parts:
             parts_text = []
-            for part in candidate.content.parts:
+            tool_calls_list: list[ToolCall] = []
+            for idx, part in enumerate(candidate.content.parts):
                 if hasattr(part, "text") and part.text:
                     parts_text.append(part.text)
-            content_text = "".join(parts_text)
+                if hasattr(part, "function_call") and part.function_call:
+                    fc = part.function_call
+                    fc_name = getattr(fc, "name", "")
+                    fc_args = getattr(fc, "args", {})
+                    call_id = f"call_{idx}_{fc_name}"
+                    tool_calls_list.append(
+                        ToolCall(
+                            id=call_id,
+                            type="function",
+                            function=FunctionCall(
+                                name=fc_name,
+                                arguments=fc_args if isinstance(fc_args, (dict, str)) else dict(fc_args),
+                            ),
+                        )
+                    )
+            content_text = "".join(parts_text) if parts_text else None
+            if tool_calls_list:
+                parsed_tool_calls = tool_calls_list
 
     finish_reason = from_gemini_finish_reason(finish_reason_raw)
+    if parsed_tool_calls and finish_reason == "stop":
+        finish_reason = "tool_calls"
 
     # Usage
     usage_meta = getattr(native, "usage_metadata", None)
@@ -160,7 +228,7 @@ def from_gemini_response(
         provider=req.provider,
         model=req.model,
         model_served=model_version,
-        message=Message(role="assistant", content=content_text),
+        message=Message(role="assistant", content=content_text, tool_calls=parsed_tool_calls),
         finish_reason=finish_reason,
         usage=Usage(
             input_tokens=input_tokens,
@@ -186,7 +254,7 @@ class GeminiAdapter(ProviderAdapter):
         stop_sequences=True,
         penalties=False,
         multimodal_input=False,
-        tool_calling=False,
+        tool_calling=True,
         supported_params=frozenset({
             "temperature",
             "top_p",
