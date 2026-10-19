@@ -13,14 +13,19 @@ from unified_llm.core.errors import (
 )
 from unified_llm.core.registry import ProviderRegistry
 from unified_llm.core.retry import RetryPolicy, run_with_retries
-from unified_llm.core.schemas import ChatRequest, ChatResponse
+from unified_llm.core.schemas import (
+    ChatRequest,
+    ChatResponse,
+    MessageRequest,
+    MessageResponse,
+)
 from unified_llm.observability.metrics import metrics
 
 logger = get_logger(__name__)
 
 
 class LLMService:
-    """Service orchestrating execution of a canonical LLM chat completion."""
+    """Service orchestrating execution of canonical LLM message completions for chat, tools, and agents."""
 
     def __init__(
         self,
@@ -32,8 +37,8 @@ class LLMService:
         self._policy = policy
         self._settings = settings
 
-    async def chat(self, req: ChatRequest, ctx: RequestContext) -> ChatResponse:
-        """Execute a validated chat completion request."""
+    async def execute(self, req: MessageRequest, ctx: RequestContext) -> MessageResponse:
+        """Execute a validated message completion request across LLM providers."""
         # 1. Resolve provider adapter
         adapter = self._registry.get(req.provider)
         config = self._registry.get_config(req.provider)
@@ -131,3 +136,7 @@ class LLMService:
         )
 
         return resp
+
+    # Ergonomic and backwards-compatible aliases
+    create_message = execute
+    chat = execute

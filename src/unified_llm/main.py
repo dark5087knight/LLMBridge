@@ -10,7 +10,7 @@ from unified_llm.api.middleware import (
     PayloadSizeLimitMiddleware,
     RequestIdMiddleware,
 )
-from unified_llm.api.routes import chat_router, health_router, providers_router
+from unified_llm.api.routes import health_router, messages_router, providers_router
 from unified_llm.config.loader import load_settings
 from unified_llm.config.settings import ServiceSettings
 from unified_llm.core.registry import ProviderRegistry
@@ -84,7 +84,7 @@ def create_app(settings: ServiceSettings | None = None) -> FastAPI:
     # Routers
     app.include_router(health_router)
     app.include_router(providers_router)
-    app.include_router(chat_router)
+    app.include_router(messages_router)
 
     return app
 

@@ -38,8 +38,8 @@ class RequestOptions(BaseModel):
     include_raw: bool = False
 
 
-class ChatRequest(BaseModel):
-    """Canonical chat completion request."""
+class MessageRequest(BaseModel):
+    """Canonical message execution request for dialogues, tool-use, and agent loops."""
 
     provider: str
     model: str
@@ -48,6 +48,9 @@ class ChatRequest(BaseModel):
     options: RequestOptions = Field(default_factory=RequestOptions)
     provider_options: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, str] = Field(default_factory=dict)
+
+
+ChatRequest = MessageRequest
 
 
 class Usage(BaseModel):
@@ -65,8 +68,8 @@ class ResponseMeta(BaseModel):
     attempts: int
 
 
-class ChatResponse(BaseModel):
-    """Canonical chat completion response."""
+class MessageResponse(BaseModel):
+    """Canonical message execution response."""
 
     id: str
     provider: str
@@ -78,6 +81,9 @@ class ChatResponse(BaseModel):
     warnings: list[Warning] = Field(default_factory=list)
     meta: ResponseMeta
     raw: dict[str, Any] | None = None
+
+
+ChatResponse = MessageResponse
 
 
 class StreamEvent(BaseModel):

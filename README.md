@@ -32,7 +32,7 @@ uvicorn unified_llm.main:create_app --factory --host 0.0.0.0 --port 8000 --reloa
 ```
 
 ### 4. API Endpoints
-- `POST /v1/chat` - Canonical chat completion
+- `POST /v1/messages` - Canonical message completion for dialogues, agent loops, and tool execution (supports `/v1/chat` as alias)
 - `GET /v1/providers` - Inspect configured providers and capabilities
 - `GET /healthz` - Liveness health check
 - `GET /readyz` - Readiness probe (`?deep=true` for live upstream checks)
