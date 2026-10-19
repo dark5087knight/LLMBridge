@@ -1,7 +1,7 @@
 """Groq provider adapter implementation using official groq SDK."""
 
 import time
-from typing import ClassVar
+from typing import AsyncIterator, ClassVar
 import httpx
 import groq
 from groq import AsyncGroq
@@ -21,8 +21,12 @@ from unified_llm.core.errors import (
     ProviderUnavailable,
     RateLimited,
 )
-from unified_llm.core.schemas import MessageRequest, MessageResponse
-from unified_llm.providers._openai_style import from_openai_response, to_openai_payload
+from unified_llm.core.schemas import MessageRequest, MessageResponse, StreamEvent
+from unified_llm.providers._openai_style import (
+    from_openai_finish_reason,
+    from_openai_response,
+    to_openai_payload,
+)
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
 
 
@@ -117,6 +121,93 @@ class GroqAdapter(ProviderAdapter):
 
         latency_ms = int((time.monotonic() - start_time) * 1000)
         return from_openai_response(native, req, ctx, latency_ms=latency_ms)
+
+    async def stream(self, req: MessageRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
+        api_key = self._resolve_api_key(req, ctx)
+        if not api_key or api_key == "missing":
+            raise ProviderAuthError(
+                "No Groq API key found. Provide it in the request via 'api_key', 'provider_options.api_key', or 'Authorization: Bearer <key>' / 'X-Provider-Key' header.",
+                provider="groq",
+                provider_status=401,
+            )
+
+        client = (
+            self._client
+            if (self._client and self.config.api_key and api_key == self.config.api_key.get_secret_value())
+            else AsyncGroq(
+                api_key=api_key,
+                base_url=self.config.base_url,
+                max_retries=0,
+                timeout=self.config.timeout_s,
+            )
+        )
+
+        payload = to_openai_payload(req)
+        payload["stream"] = True
+
+        yield StreamEvent(
+            event="start",
+            data={
+                "id": ctx.request_id,
+                "provider": self.name,
+                "model": req.model,
+            },
+        )
+
+        finish_reason = "stop"
+        try:
+            response_stream = await client.chat.completions.create(
+                **payload,
+                timeout=ctx.remaining_s(),
+            )
+            async for chunk in response_stream:
+                if chunk.choices:
+                    choice = chunk.choices[0]
+                    delta = choice.delta
+                    if delta and delta.content:
+                        yield StreamEvent(
+                            event="delta",
+                            data={
+                                "content": delta.content,
+                                "role": delta.role or "assistant",
+                            },
+                        )
+                    if choice.finish_reason:
+                        finish_reason = from_openai_finish_reason(choice.finish_reason)
+
+                x_groq = getattr(chunk, "x_groq", None)
+                if x_groq and getattr(x_groq, "usage", None):
+                    usage = x_groq.usage
+                    yield StreamEvent(
+                        event="usage",
+                        data={
+                            "input_tokens": usage.prompt_tokens,
+                            "output_tokens": usage.completion_tokens,
+                            "total_tokens": usage.total_tokens,
+                        },
+                    )
+                elif getattr(chunk, "usage", None):
+                    usage = chunk.usage
+                    yield StreamEvent(
+                        event="usage",
+                        data={
+                            "input_tokens": usage.prompt_tokens,
+                            "output_tokens": usage.completion_tokens,
+                            "total_tokens": usage.total_tokens,
+                        },
+                    )
+        except Exception as exc:
+            raise self.translate_error(exc) from exc
+        finally:
+            if client != self._client:
+                await client.close()
+
+        yield StreamEvent(
+            event="end",
+            data={
+                "finish_reason": finish_reason,
+            },
+        )
 
     async def health_check(self) -> HealthStatus:
         if not self._client:

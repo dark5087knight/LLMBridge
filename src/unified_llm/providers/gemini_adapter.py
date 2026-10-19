@@ -1,7 +1,7 @@
 """Gemini provider adapter implementation using official google-genai SDK."""
 
 import time
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, AsyncIterator, ClassVar, Literal, cast
 from google import genai
 from google.genai import errors as genai_errors, types
 
@@ -25,6 +25,7 @@ from unified_llm.core.schemas import (
     MessageRequest,
     MessageResponse,
     ResponseMeta,
+    StreamEvent,
     Usage,
 )
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
@@ -247,6 +248,69 @@ class GeminiAdapter(ProviderAdapter):
 
         latency_ms = int((time.monotonic() - start_time) * 1000)
         return from_gemini_response(response, req, ctx, latency_ms=latency_ms, warnings=warnings)
+
+    async def stream(self, req: MessageRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
+        api_key = self._resolve_api_key(req, ctx)
+        if not api_key or api_key == "missing":
+            raise ProviderAuthError(
+                "No Gemini API key found. Provide it in the request via 'api_key', 'provider_options.api_key', or 'Authorization: Bearer <key>' / 'X-Provider-Key' header.",
+                provider="gemini",
+                provider_status=401,
+            )
+
+        client = (
+            self._client
+            if (self._client and self.config.api_key and api_key == self.config.api_key.get_secret_value())
+            else genai.Client(api_key=api_key)
+        )
+
+        contents, config, _ = to_gemini_payload(req)
+
+        yield StreamEvent(
+            event="start",
+            data={
+                "id": ctx.request_id,
+                "provider": self.name,
+                "model": req.model,
+            },
+        )
+
+        finish_reason = "stop"
+        try:
+            response_stream = await client.aio.models.generate_content_stream(
+                model=req.model,
+                contents=cast(types.ContentListUnion, contents),
+                config=config,
+            )
+            async for chunk in response_stream:
+                if chunk.text:
+                    yield StreamEvent(
+                        event="delta",
+                        data={
+                            "content": chunk.text,
+                            "role": "assistant",
+                        },
+                    )
+                if chunk.candidates and chunk.candidates[0].finish_reason:
+                    finish_reason = from_gemini_finish_reason(chunk.candidates[0].finish_reason)
+                if chunk.usage_metadata:
+                    yield StreamEvent(
+                        event="usage",
+                        data={
+                            "input_tokens": chunk.usage_metadata.prompt_token_count,
+                            "output_tokens": chunk.usage_metadata.candidates_token_count,
+                            "total_tokens": chunk.usage_metadata.total_token_count,
+                        },
+                    )
+        except Exception as exc:
+            raise self.translate_error(exc) from exc
+
+        yield StreamEvent(
+            event="end",
+            data={
+                "finish_reason": finish_reason,
+            },
+        )
 
     async def health_check(self) -> HealthStatus:
         if not self._client:

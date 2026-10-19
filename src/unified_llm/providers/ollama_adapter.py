@@ -1,7 +1,6 @@
-"""Ollama provider adapter implementation using HTTPX async client."""
-
+import json
 import time
-from typing import Any, ClassVar, Literal
+from typing import Any, AsyncIterator, ClassVar, Literal
 import httpx
 
 from unified_llm.config.settings import ProviderConfig
@@ -22,6 +21,7 @@ from unified_llm.core.schemas import (
     MessageRequest,
     MessageResponse,
     ResponseMeta,
+    StreamEvent,
     Usage,
 )
 from unified_llm.providers.base import HealthStatus, ProviderAdapter
@@ -200,6 +200,92 @@ class OllamaAdapter(ProviderAdapter):
 
         latency_ms = int((time.monotonic() - start_time) * 1000)
         return from_ollama_response(data, req, ctx, latency_ms=latency_ms)
+
+    async def stream(self, req: MessageRequest, ctx: CallContext) -> AsyncIterator[StreamEvent]:
+        if not self._client:
+            await self.startup()
+            assert self._client is not None
+
+        keep_alive = self.config.extra.get("keep_alive")
+        payload = to_ollama_payload(req, keep_alive=keep_alive)
+        payload["stream"] = True
+
+        custom_base = (
+            req.provider_options.get("base_url")
+            or req.provider_options.get("host")
+            or req.provider_options.get("address")
+        )
+        endpoint = f"{str(custom_base).rstrip('/')}/api/chat" if custom_base else "/api/chat"
+
+        yield StreamEvent(
+            event="start",
+            data={
+                "id": ctx.request_id,
+                "provider": self.name,
+                "model": req.model,
+            },
+        )
+
+        finish_reason = "stop"
+        try:
+            async with self._client.stream(
+                "POST",
+                endpoint,
+                json=payload,
+                timeout=ctx.remaining_s(),
+            ) as response:
+                if response.is_error:
+                    await response.aread()
+                    raise httpx.HTTPStatusError(
+                        message=f"Ollama returned HTTP {response.status_code}: {response.text}",
+                        request=response.request,
+                        response=response,
+                    )
+
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                    except Exception:
+                        continue
+
+                    msg_dict = chunk.get("message", {})
+                    content_chunk = msg_dict.get("content", "")
+                    if content_chunk:
+                        yield StreamEvent(
+                            event="delta",
+                            data={
+                                "content": content_chunk,
+                                "role": msg_dict.get("role", "assistant"),
+                            },
+                        )
+
+                    if chunk.get("done"):
+                        finish_reason = from_ollama_finish_reason(chunk.get("done_reason"))
+                        prompt_eval_count = chunk.get("prompt_eval_count")
+                        eval_count = chunk.get("eval_count")
+                        total_tokens = None
+                        if prompt_eval_count is not None and eval_count is not None:
+                            total_tokens = prompt_eval_count + eval_count
+                        if total_tokens is not None:
+                            yield StreamEvent(
+                                event="usage",
+                                data={
+                                    "input_tokens": prompt_eval_count,
+                                    "output_tokens": eval_count,
+                                    "total_tokens": total_tokens,
+                                },
+                            )
+        except Exception as exc:
+            raise self.translate_error(exc) from exc
+
+        yield StreamEvent(
+            event="end",
+            data={
+                "finish_reason": finish_reason,
+            },
+        )
 
     async def health_check(self) -> HealthStatus:
         if not self._client:
